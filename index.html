@@ -1,0 +1,68 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>My Graduation</title><style>
+/* CSS */
+*{box-sizing:border-box}body{margin:0;background:#f7f6f9;color:#292631;font:15px system-ui,sans-serif}main{max-width:1050px;margin:auto;padding:30px 18px}h1{font-size:32px;margin:0}h2{font-size:19px}p,small{color:#746d80}section{background:white;border:1px solid #e8e4ed;border-radius:18px;padding:22px;margin:18px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.metric{background:#f7f4fc;padding:16px;border-radius:12px}.metric strong{display:block;font-size:28px;margin-top:8px}progress{width:100%;height:10px;accent-color:#9376bf}button,input,select{font:inherit;border:1px solid #ddd5e6;border-radius:8px;padding:9px;background:white;color:inherit}button{cursor:pointer}button.primary{background:#7355a0;color:white;border:0}form{display:flex;gap:8px;flex-wrap:wrap}form input,form select{flex:1;min-width:110px}table{width:100%;border-collapse:collapse;white-space:nowrap}td,th{text-align:left;padding:12px 8px;border-bottom:1px solid #eee}th{font-size:13px;color:#746d80}.scroll{overflow:auto}.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.muted{font-size:12px;color:#746d80}.danger{color:#b54c65}button:hover{filter:brightness(.95)}
+</style></head><body><main>
+<!-- HTML -->
+<header><small>PERSONAL ACADEMIC PLANNER</small><h1>My Graduation 🎓</h1><p>나만의 졸업학점 관리 플래너</p></header>
+<section><div class="grid" id="summary"></div><p class="muted">예정 학점은 취득 학점과 별도로 계산해. 학점 합계만으로 필수과목 충족 여부를 판정하지 않아.</p></section>
+<section><div class="bar"><h2>영역별 이수 현황</h2><button id="toggle">예정 과목 포함</button></div><div class="grid" id="areas"></div><p class="muted">기준: 2018~2024학번 인공지능·소프트웨어융합대학 안내문. 전과 및 개별 인정 규정은 별도 확인. 자유선택은 초과학점 자동 전환 없이 직접 분류.</p></section>
+<section><h2>MSI PDF 자동 등록</h2><p>성적표 PDF를 선택하면 과목별 정보를 읽어 등록해. 기존 과목의 수동 수정은 유지하고 새 기록만 추가해.</p><input type="file" id="pdf" accept="application/pdf,.pdf"><p id="pdfmsg" role="status"></p><small>PDF 읽기에는 최초 인터넷 연결이 필요해 (PDF.js CDN). PDF 내용은 브라우저 내부에서 처리해.</small></section><section><h2>과목 등록</h2><form id="form"><input id="name" placeholder="과목명" required><input id="term" placeholder="학기 (예: 2026-2)" required><select id="category"></select><input id="credit" type="number" min="0" max="30" step="0.5" placeholder="학점" required><select id="status"><option>이수완료</option><option>수강중</option><option>수강예정</option><option>인정확인중</option><option>학점포기</option><option>미취득</option><option>재수강 이전</option></select><input id="grade" placeholder="등급 (A+, P 등)"><input id="code" placeholder="과목코드"><input id="note" placeholder="비고 / MSI 분류"><button class="primary" id="submit">추가</button><button type="button" id="cancel" hidden>취소</button></form></section>
+<section><div class="bar"><h2>전체 과목</h2><select id="filter"><option value="">전체 상태</option><option>이수완료</option><option>수강중</option><option>수강예정</option><option>인정확인중</option><option>학점포기</option><option>미취득</option><option>재수강 이전</option></select></div><div class="scroll"><table><thead><tr><th>학기</th><th>과목</th><th>이수구분</th><th>학점</th><th>등급</th><th>상태</th><th>비고</th><th>관리</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section><div class="bar"><h2>데이터 관리</h2><div><button id="export">JSON 백업</button> <button id="import">불러오기</button><input type="file" id="file" accept=".json" hidden></div></div><small>브라우저에 자동 저장돼. 다른 기기로 이동하거나 브라우저 데이터를 삭제하기 전에는 백업해 줘.</small></section></main><script>
+// JavaScript: 졸업 기준은 여기에서 수정
+const REQUIREMENTS={'공통교양':17,'핵심교양':12,'학문기초교양':18,'일반교양':10,'전공':70,'자유선택':7};
+const TOTAL=134, KEY='my-graduation-v1';
+const $=id=>document.getElementById(id);let courses=[],editing=null,include=false;
+try{courses=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+$('category').innerHTML=Object.keys(REQUIREMENTS).map(x=>`<option>${x}</option>`).join('');
+const sum=a=>a.reduce((n,c)=>n+Number(c.credit),0);
+function render(){const done=courses.filter(c=>c.status==='이수완료'),planned=courses.filter(c=>['수강중','수강예정'].includes(c.status)),active=include?[...done,...planned]:done;const earned=sum(done);$('summary').innerHTML=[['취득 학점',earned+' / '+TOTAL],['총학점 기준 부족',Math.max(0,TOTAL-earned)+'학점'],['수강중·예정',sum(planned)+'학점'],['예상 총학점',earned+sum(planned)+'학점']].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');$('areas').innerHTML=Object.entries(REQUIREMENTS).map(([k,v])=>{const n=sum(active.filter(c=>c.category===k));return `<div class="metric"><b>${k}</b><p>${n} / ${v}학점 · ${n>=v?'충족':(v-n)+'학점 부족'}</p><progress max="${v}" value="${Math.min(n,v)}"></progress></div>`}).join('');$('rows').innerHTML=courses.map((c,i)=>({...c,i})).filter(c=>!$('filter').value||c.status===$('filter').value).map(c=>`<tr><td>${esc(c.term)}</td><td>${esc(c.name)}</td><td>${esc(c.category)}</td><td>${c.credit}</td><td>${esc(c.grade)}</td><td>${esc(c.status)}</td><td>${esc(c.note)}</td><td><button onclick="edit(${c.i})">수정</button> <button class="danger" onclick="removeCourse(${c.i})">삭제</button></td></tr>`).join('')||'<tr><td colspan="8">등록된 과목이 없어.</td></tr>';try{localStorage.setItem(KEY,JSON.stringify(courses))}catch(e){console.warn(e)}}
+const fields=['name','term','category','credit','status','note','grade','code'];function reset(){editing=null;$('form').reset();$('submit').textContent='추가';$('cancel').hidden=true}function edit(i){editing=i;fields.forEach(k=>$(k).value=courses[i][k]??'');$('submit').textContent='저장';$('cancel').hidden=false;$('form').scrollIntoView({behavior:'smooth'})}function removeCourse(i){if(confirm('이 과목을 삭제할까?')){courses.splice(i,1);reset();render()}}
+$('form').onsubmit=e=>{e.preventDefault();const c=Object.fromEntries(fields.map(k=>[k,$(k).value]));c.credit=Number(c.credit);if(editing===null)courses.push(c);else courses[editing]={...courses[editing],...c};reset();render()};$('cancel').onclick=reset;$('filter').onchange=render;$('toggle').onclick=()=>{include=!include;$('toggle').textContent=include?'취득 학점만 보기':'예정 과목 포함';render()};$('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(courses,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='graduation-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};$('import').onclick=()=>$('file').click();$('file').onchange=async e=>{try{const a=JSON.parse(await e.target.files[0].text());if(!Array.isArray(a)||!a.every(c=>c&&typeof c.name==='string'&&typeof c.term==='string'&&Object.hasOwn(REQUIREMENTS,c.category)&&Number.isFinite(c.credit)&&c.credit>=0&&['이수완료','수강중','수강예정','인정확인중','학점포기','미취득','재수강 이전'].includes(c.status)))throw Error();if(confirm('현재 데이터를 백업 파일로 교체할까?')){courses=a;reset();render()}}catch(e){alert('올바른 백업 파일을 선택해 줘.')}finally{$('file').value=''}};render();
+
+// PDF import: group PDF text by vertical position, then parse each table row.
+const ROW = new RegExp("^(공통교양|핵심교양|학문기초교양|일반교양|전공(?:\\d단계)?|자유선택)\\s+(\\d{4})년\\s*(1학기|2학기|하계계절|동계계절)\\s+(\\S+)\\s+([A-Z]+\\d+)\\s+(.+?)\\s+(\\d+(?:\\.\\d+)?)\\s+([A-DF][+0-]?|P|R|NP|N)(?:\\s+(\\d+|\\*+))?\\s*$");
+function parseRows(lines){
+ return lines.map(line=>line.trim().match(ROW)).filter(Boolean).map(m=>{
+ const [,originalCategory,year,semester,koreanCode,code,name,credit,grade,repeat]=m;
+ const term=year+'-'+({'1학기':'1','2학기':'2','하계계절':'하계','동계계절':'동계'}[semester]);
+ return {name,term,category:originalCategory.startsWith('전공')?'전공':originalCategory,originalCategory,koreanCode,code,credit:Number(credit),grade,repeat:repeat||'',status:grade==='R'?'재수강 이전':['F','N','NP'].includes(grade)?'미취득':'이수완료',note:'MSI: '+originalCategory};
+ });
+}
+function addRows(lines,expected){
+ const incoming=parseRows(lines);
+ if(!incoming.length) throw Error('과목을 읽지 못했어. MSI 성적표 형식을 확인해 줘.');
+ const total=sum(incoming.filter(c=>c.status==='이수완료'));
+ if(expected!=null && total!==expected) throw Error('PDF 취득학점 '+expected+'와 추출 학점 '+total+'이 달라. 등록하지 않았어.');
+ const fresh=incoming.filter(c=>!courses.some(old=>old.term===c.term&&((old.code&&old.code===c.code)||old.name===c.name)));
+ if(confirm('읽은 과목 '+incoming.length+'개 / 취득 '+total+'학점. 신규 '+fresh.length+'개를 추가할까? 기존 기록은 유지돼.')){
+ courses.push(...fresh);render();$('pdfmsg').textContent='신규 '+fresh.length+'개 등록 완료. 기존 '+(incoming.length-fresh.length)+'개 유지.';
+ }
+}
+$('pdf').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ $('pdfmsg').textContent='PDF 읽는 중…';
+ try{
+ const pdfjs=await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs');
+ pdfjs.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
+ const doc=await pdfjs.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+ const lines=[];
+ for(let n=1;n<=doc.numPages;n++){
+ const page=await doc.getPage(n),content=await page.getTextContent(),groups=[];
+ for(const item of content.items){
+ if(!item.str||!item.str.trim())continue;
+ const [,,,,x,y]=item.transform;
+ let group=groups.find(g=>Math.abs(g.y-y)<2);
+ if(!group){group={y,items:[]};groups.push(group);}
+ group.items.push({x,str:item.str});
+ }
+ groups.sort((a,b)=>b.y-a.y);
+ for(const g of groups)lines.push(g.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' '));
+ }
+ const expected=lines.join('\n').match(/총\s*취득학점\s*[-:]\s*(\d+(?:\.\d+)?)/);
+ addRows(lines,expected?Number(expected[1]):null);
+ }catch(err){$('pdfmsg').textContent='등록 실패: '+err.message+' (인터넷 연결 또는 PDF 형식 확인)';}
+ finally{e.target.value='';}
+};
+</script></body></html>
